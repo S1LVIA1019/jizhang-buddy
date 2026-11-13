@@ -4,6 +4,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.buddy.jizhang.core.LimitNotifier
 import com.buddy.jizhang.core.Tags
+import com.buddy.jizhang.core.fmt
 import com.buddy.jizhang.data.Dao
 import com.buddy.jizhang.data.Prefs
 import com.buddy.jizhang.data.Tx
@@ -56,8 +58,14 @@ fun AddScreen(onSaved: () -> Unit) {
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(vertical = 12.dp)
+            .padding(vertical = 10.dp)
     ) {
+        HeroCard(
+            label = if (kind == "expense") "支出金额" else "收入金额",
+            big = "¥${amount.ifBlank { "0.00" }}",
+            note = "超过 ¥${fmt(Prefs.largeThreshold)} 算大额，会在总结里单列"
+        )
+
         SectionCard("记一笔") {
             Row {
                 listOf("支出" to "expense", "收入" to "income").forEach { (label, k) ->
@@ -65,12 +73,13 @@ fun AddScreen(onSaved: () -> Unit) {
                     androidx.compose.foundation.layout.Box(
                         Modifier
                             .padding(end = 10.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (sel) Blue else Color(0xFFEEF1F6))
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(if (sel) Blue else ChipBg)
                             .clickable { kind = k }
                             .padding(horizontal = 18.dp, vertical = 8.dp)
                     ) {
-                        Text(label, fontSize = 13.sp, color = if (sel) Color.White else Color(0xFF374151))
+                        Text(label, fontSize = 12.5.sp, color = if (sel) Color.White else Color(0xFF5A6072),
+                            fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal)
                     }
                 }
             }
@@ -78,17 +87,17 @@ fun AddScreen(onSaved: () -> Unit) {
             OutlinedTextField(
                 value = amount,
                 onValueChange = { amount = it.filter { c -> c.isDigit() || c == '.' }.take(10) },
-                label = { Text(if (kind == "expense") "支出金额" else "收入金额") },
+                label = { Text("金额（元）") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(14.dp))
-            Text("品类", fontSize = 12.sp, color = TextGray)
+            Text("支出品类", fontSize = 12.sp, color = TextGray)
             Spacer(Modifier.height(8.dp))
             Chips(Prefs.categories, category) { category = it }
             Spacer(Modifier.height(14.dp))
-            Text("账户", fontSize = 12.sp, color = TextGray)
+            Text("从哪个账户出", fontSize = 12.sp, color = TextGray)
             Spacer(Modifier.height(8.dp))
             Chips(Prefs.accounts, account) { account = it }
             Spacer(Modifier.height(14.dp))
@@ -99,9 +108,18 @@ fun AddScreen(onSaved: () -> Unit) {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
-            if (memo.isNotBlank() && tag != null) {
-                Spacer(Modifier.height(6.dp))
-                Text("自动标签：$tag", fontSize = 12.sp, color = BlueLight)
+            if (memo.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    TagPill(category)
+                    tag?.split(",")?.filter { it.isNotBlank() }?.forEach { TagPill(it.trim()) }
+                }
+                Text(
+                    "备注原文和自动标签都会一起写进导出文件",
+                    fontSize = 10.5.sp,
+                    color = TextGray,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
             }
             Spacer(Modifier.height(16.dp))
             Button(
@@ -133,19 +151,30 @@ fun AddScreen(onSaved: () -> Unit) {
                     msg = if (kind == "expense") "已入账，超限会立刻提醒你" else "已入账"
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("保存", fontSize = 15.sp, fontWeight = FontWeight.Medium) }
-            Spacer(Modifier.height(8.dp))
+            ) { Text("保存这一笔", fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+            if (msg.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(msg, fontSize = 11.5.sp, color = TextGray)
+            }
+        }
+
+        SectionCard("校园卡明细截图导入", container = SoftPurple) {
+            Text(
+                "离线识别金额、商户、时间 · 自动过滤充值 · 疑似重复只标黄，由你勾选删除",
+                fontSize = 11.5.sp,
+                color = Color(0xFF4A3D6E),
+                lineHeight = 18.sp
+            )
+            Spacer(Modifier.height(10.dp))
             Button(
                 onClick = {
                     runCatching { ctx.startActivity(Intent(ctx, ImportActivity::class.java)) }
+                        .onFailure { Toast.makeText(ctx, "无法打开导入页", Toast.LENGTH_SHORT).show() }
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("校园卡截图导入", fontSize = 15.sp) }
-            if (msg.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                Text(msg, fontSize = 12.sp, color = TextGray)
-            }
+            ) { Text("选择截图导入", fontSize = 13.sp) }
         }
+
         Spacer(Modifier.height(80.dp))
     }
 }

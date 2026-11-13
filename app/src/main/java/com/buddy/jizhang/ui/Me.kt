@@ -5,6 +5,7 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -59,6 +61,7 @@ fun MeScreen(tick: Int, onTick: () -> Unit) {
         "me" -> MeMenu(tick) { page = it }
         "settings" -> SettingsScreen(onBack = { page = "me" }, onTick = onTick)
         "history" -> HistoryScreen(onBack = { page = "me" })
+        "perm" -> PermScreen(onBack = { page = "me" })
     }
 }
 
@@ -84,18 +87,24 @@ private fun MeMenu(tick: Int, go: (String) -> Unit) {
 
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            SectionCard("记账buddy") {
-                Text("累计结余 ¥${fmt(saved)}", fontSize = 24.sp, fontWeight = FontWeight.Bold,
-                    color = if (saved >= 0) OkGreen else OverRed)
-                KV("攒钱目标", "「${Prefs.goalName}」还差 ¥${fmt((Prefs.goalAmount - saved).coerceAtLeast(0.0))}")
-                KV("连续记账", "$streak 天")
-                KV("成就徽章", buildString {
-                    if (streak >= 7) append("坚持一周 ")
-                    if (streak >= 28) append("坚持一月 ")
-                    if (saved >= 500) append("攒下五百 ")
-                    if (saved >= Prefs.goalAmount && Prefs.goalAmount > 0) append("目标达成")
-                    if (isEmpty()) append("记几笔就能点亮")
-                })
+            HeroCard(
+                label = "记账buddy",
+                big = "¥${fmt(saved)}",
+                note = "累计结余 · 连续记账 $streak 天 · 「${Prefs.goalName}」还差 ¥${fmt((Prefs.goalAmount - saved).coerceAtLeast(0.0))}"
+            )
+        }
+        item {
+            SectionCard("成就徽章") {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Badge("坚持一周", streak >= 7)
+                    Badge("坚持一月", streak >= 28)
+                    Badge("攒下五百", saved >= 500)
+                    Badge("目标达成", saved >= Prefs.goalAmount && Prefs.goalAmount > 0)
+                }
+                if (streak < 7 && saved < 500) {
+                    Text("记几笔就能点亮徽章", fontSize = 10.5.sp, color = TextGray,
+                        modifier = Modifier.padding(top = 8.dp))
+                }
             }
         }
         item {
@@ -114,11 +123,41 @@ private fun MeMenu(tick: Int, go: (String) -> Unit) {
         }
         item {
             SectionCard("更多") {
+                MenuRow("权限自检 · 开启悬浮窗", "权限状态检测 + OPPO 受限设置引导") { go("perm") }
                 MenuRow("历史总结", "保存过的日/周/月报告") { go("history") }
+                MenuRow("账户管理 · 攒钱目标", "在「设置」里自定义") { go("settings") }
+                MenuRow("数据备份导出", "JSON / CSV / MD 一键分享") {
+                    Export.share(ctx, Period.YEAR, allTime = true)
+                }
                 MenuRow("设置", "限额、品类、悬浮窗、提醒、数据") { go("settings") }
             }
         }
         item { Spacer(Modifier.height(90.dp)) }
+    }
+}
+
+@Composable
+private fun Badge(label: String, unlocked: Boolean) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (unlocked) HeroBg else ChipBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                Modifier
+                    .size(16.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (unlocked) Blue else Color(0xFFB9BDC8))
+            )
+        }
+        Text(
+            label, fontSize = 9.5.sp,
+            color = if (unlocked) TextDark else TextGray,
+            modifier = Modifier.padding(top = 5.dp)
+        )
     }
 }
 
@@ -143,7 +182,7 @@ private fun MenuRow(title: String, sub: String, onClick: () -> Unit) {
 @Composable
 private fun HistoryScreen(onBack: () -> Unit) {
     val entries = remember { Prefs.historyEntries() }
-    Column(Modifier.fillMaxSize().background(Color(0xFFF4F6FA))) {
+    Column(Modifier.fillMaxSize().background(PageBg)) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = onBack) { Text("返回") }
             Text("历史总结", fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 14.dp))
@@ -179,7 +218,7 @@ private fun SettingsScreen(onBack: () -> Unit, onTick: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(Color(0xFFF4F6FA))
+            .background(PageBg)
     ) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = onBack) { Text("返回") }
@@ -313,9 +352,7 @@ private fun SettingsScreen(onBack: () -> Unit, onTick: () -> Unit) {
                         if (!ok) Toast.makeText(ctx, "请先开启无障碍服务", Toast.LENGTH_SHORT).show()
                     }) { Text("预览 10 秒") }
                     Spacer(Modifier.width2())
-                    OutlinedButton(onClick = {
-                        runCatching { ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-                    }) { Text("无障碍设置") }
+                    OutlinedButton(onClick = { Perm.openAccessibility(ctx) }) { Text("无障碍设置") }
                 }
                 Spacer(Modifier.height(10.dp))
                 Text("最近触发记录", fontSize = 12.sp, color = TextGray)
@@ -337,6 +374,13 @@ private fun SettingsScreen(onBack: () -> Unit, onTick: () -> Unit) {
                     "ColorOS 提示：给本应用「自启动」并锁定后台，否则定时提醒和悬浮窗可能被系统清理。",
                     fontSize = 11.5.sp, color = TextGray
                 )
+                Spacer(Modifier.height(10.dp))
+                Button(onClick = { Perm.openAccessibility(ctx) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("一键前往系统无障碍设置", fontSize = 12.sp)
+                }
+                OutlinedButton(onClick = { Perm.openAppDetails(ctx) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("去应用详情 · 允许受限设置", fontSize = 12.sp)
+                }
             }
 
             SectionCard("AI（可选）") {
@@ -356,7 +400,7 @@ private fun SettingsScreen(onBack: () -> Unit, onTick: () -> Unit) {
             }
 
             SectionCard("关于") {
-                KV("版本", "1.0.0 (v1)")
+                KV("版本", "1.1.0 (v2)")
                 KV("数据存储", "全部在本机，不上传")
             }
             Spacer(Modifier.height(60.dp))

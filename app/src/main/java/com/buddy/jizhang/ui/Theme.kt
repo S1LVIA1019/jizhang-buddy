@@ -1,6 +1,5 @@
 package com.buddy.jizhang.ui
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -12,10 +11,17 @@ fun JizhangTheme(content: @Composable () -> Unit) {
         colorScheme = lightColorScheme(
             primary = Blue,
             onPrimary = Color.White,
-            background = Color(0xFFF4F6FA),
+            primaryContainer = HeroBg,
+            onPrimaryContainer = HeroInk,
+            background = PageBg,
+            onBackground = TextDark,
             surface = Color.White,
+            onSurface = TextDark,
+            surfaceVariant = CardBg,
+            onSurfaceVariant = TextGray,
             secondary = BlueLight,
-            onSecondary = Color.White
+            onSecondary = Color.White,
+            error = OverRed
         ),
         content = content
     )

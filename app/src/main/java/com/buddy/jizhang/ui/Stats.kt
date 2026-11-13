@@ -2,6 +2,7 @@ package com.buddy.jizhang.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.buddy.jizhang.core.Export
 import com.buddy.jizhang.core.Period
 import com.buddy.jizhang.core.Summary
+import com.buddy.jizhang.core.Tags
 import com.buddy.jizhang.core.fmt
 import com.buddy.jizhang.core.periodRange
 import com.buddy.jizhang.data.Dao
@@ -54,46 +57,44 @@ fun StatsScreen(tick: Int) {
     val income = remember(tick, periodName) { Dao.sum(ctx, range.first, range.second, "income") }
     val txs = remember(tick, periodName) { Dao.all(ctx, range.first, range.second) }
     val ex = remember(tick, periodName) { txs.filter { it.kind == "expense" } }
+    val balance = income - expense
 
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Period.entries.forEach { pd ->
                     val sel = pd == p
                     Box(
                         Modifier
                             .padding(end = 8.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (sel) Blue else Color(0xFFEEF1F6))
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(if (sel) Blue else ChipBg)
                             .clickable { periodName = pd.name }
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                            .padding(horizontal = 13.dp, vertical = 8.dp)
                     ) {
-                        Text(pd.label, fontSize = 13.sp, color = if (sel) Color.White else Color(0xFF374151))
+                        Text(pd.label, fontSize = 12.5.sp, color = if (sel) Color.White else Color(0xFF5A6072))
                     }
                 }
             }
         }
 
         item {
-            SectionCard("${p.label}收支（${if (expense == 0.0 && txs.isEmpty()) "无记录" else "含未记收入"}）") {
-                Text("支出 ¥${fmt(expense)}", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = TextDark)
-                Spacer(Modifier.height(8.dp))
-                KV("收入", "¥${fmt(income)}")
-                KV(
-                    if (income - expense >= 0) "结余" else "超支",
-                    "¥${fmt(kotlin.math.abs(income - expense))}",
-                    if (income - expense >= 0) OkGreen else OverRed
+            HeroCard(
+                label = "${p.label}支出",
+                big = "¥${fmt(expense)}",
+                note = if (txs.isEmpty()) "本期还没有记录" else "共 ${txs.size} 笔，含未记收入",
+                split = listOf(
+                    "收入" to "¥${fmt(income)}",
+                    (if (balance >= 0) "结余" else "超支") to "¥${fmt(kotlin.math.abs(balance))}",
+                    "结余率" to if (income > 0) "${((balance / income) * 100).toInt()}%" else "—"
                 )
-                if (income > 0) {
-                    KV("结余率", "${((income - expense) / income * 100).toInt()}%")
-                }
-            }
+            )
         }
 
         item {
-            SectionCard("分类") {
+            SectionCard("各品类限额") {
                 if (ex.isEmpty()) {
-                    Text("本${p.label}还没有支出记录", fontSize = 13.sp, color = TextGray)
+                    Text("本${p.label}还没有支出记录", fontSize = 12.5.sp, color = TextGray)
                 } else {
                     val byCat = ex.groupBy { it.category }
                         .map { it.key to it.value.sumOf { v -> v.amount } }
@@ -101,33 +102,29 @@ fun StatsScreen(tick: Int) {
                     val maxV = byCat.maxOf { it.second }.coerceAtLeast(1.0)
                     byCat.forEach { (cat, v) ->
                         val lim = Prefs.catLimit(cat)
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(cat, fontSize = 13.sp, color = TextDark, modifier = Modifier.fillMaxWidth(0.28f))
-                            Box(
-                                Modifier
-                                    .weight(1f)
-                                    .height(14.dp)
-                                    .clip(RoundedCornerShape(7.dp))
-                                    .background(Color(0xFFE8ECF2))
-                            ) {
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth((v / maxV).toFloat().coerceIn(0.02f, 1f))
-                                        .height(14.dp)
-                                        .clip(RoundedCornerShape(7.dp))
-                                        .background(if (lim > 0 && v >= lim) OverRed else Blue)
-                                )
-                            }
-                            Text(
-                                "¥${fmt(v)}" + if (lim > 0) " / ${fmt(lim)}" else "",
-                                fontSize = 11.sp,
-                                color = TextGray,
-                                modifier = Modifier.padding(start = 6.dp)
-                            )
-                        }
+                        val over = lim > 0 && v >= lim
+                        KV(cat, "¥${fmt(v)}" + if (lim > 0) " / ¥${fmt(lim)}" else "",
+                            if (over) OverRed else TextDark)
+                        Spacer(Modifier.height(2.dp))
+                        Bar((v / maxV).toFloat().coerceIn(0.02f, 1f), if (over) OverRed else Blue)
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+
+        item {
+            SectionCard("钱花在哪了 · 按你的备注") {
+                val ma = Tags.memoAnalysis(ex)
+                if (ma.isEmpty()) {
+                    Text("还没有带标签的记录，记账时写清楚备注就能自动归类", fontSize = 11.5.sp, color = TextGray)
+                } else {
+                    ma.entries.take(6).forEach { (k, v) ->
+                        KV(
+                            "$k ${v.first} 次",
+                            "¥${fmt(v.second)}",
+                            if (k in listOf("外食", "外卖", "奶茶", "零食", "化妆品")) OverRed else TextDark
+                        )
                     }
                 }
             }
@@ -136,18 +133,15 @@ fun StatsScreen(tick: Int) {
         item {
             SectionCard("流水（${txs.size} 笔）") {
                 if (txs.isEmpty()) {
-                    Text("暂无记录", fontSize = 13.sp, color = TextGray)
+                    Text("暂无记录", fontSize = 12.5.sp, color = TextGray)
                 } else {
                     txs.take(50).forEach { tx ->
                         Row(
                             Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column(Modifier.fillMaxWidth(0.7f)) {
-                                Text(
-                                    tx.memo.ifBlank { tx.category },
-                                    fontSize = 13.5.sp, color = TextDark
-                                )
+                                Text(tx.memo.ifBlank { tx.category }, fontSize = 13.sp, color = TextDark)
                                 Text(
                                     "${timeShort(tx.ts)} · ${tx.category} · ${tx.account}" +
                                         if (tx.tags.isNotBlank()) " · ${tx.tags}" else "",
@@ -156,8 +150,8 @@ fun StatsScreen(tick: Int) {
                             }
                             Text(
                                 (if (tx.kind == "expense") "-¥" else "+¥") + fmt(tx.amount),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold,
                                 color = if (tx.kind == "expense") TextDark else OkGreen
                             )
                         }
@@ -167,17 +161,23 @@ fun StatsScreen(tick: Int) {
         }
 
         item {
-            Row(Modifier.fillMaxWidth().padding(16.dp)) {
+            Button(
+                onClick = { Export.share(ctx, p) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = HeroInk)
+            ) { Text("点击此处使用 Buddy 生成${p.label}个性化分析", fontSize = 12.5.sp) }
+
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
                 Button(
                     onClick = { showReport = true },
-                    modifier = Modifier.weight(1f).padding(end = 6.dp)
-                ) { Text("生成${p.label}总结") }
+                    modifier = Modifier.weight(1f).padding(end = 5.dp)
+                ) { Text("生成${p.label}总结", fontSize = 12.sp) }
                 OutlinedButton(
                     onClick = { Export.share(ctx, p) },
-                    modifier = Modifier.weight(1f).padding(start = 6.dp)
-                ) { Text("导出数据") }
+                    modifier = Modifier.weight(1f).padding(start = 5.dp)
+                ) { Text("导出数据", fontSize = 12.sp) }
             }
-            Spacer(Modifier.height(80.dp))
+            Spacer(Modifier.height(90.dp))
         }
     }
 }
@@ -186,51 +186,42 @@ fun StatsScreen(tick: Int) {
 fun ReportView(p: Period, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val text = remember(p) { Summary.forPeriod(ctx, p) }
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF4F6FA))
-    ) {
+    Column(Modifier.fillMaxSize().background(PageBg)) {
         Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            OutlinedButton(onClick = onClose) { Text("返回") }
+            OutlinedButton(onClick = onClose) { Text("返回", fontSize = 12.sp) }
             Text(
                 "${p.label}总结",
-                fontSize = 17.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
+                color = TextDark,
                 modifier = Modifier.padding(start = 14.dp)
             )
         }
-        LazyColumn(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-        ) {
+        LazyColumn(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
             item {
-                SectionCard("本地报告") {
-                    Text(text, fontSize = 13.sp, color = TextDark, lineHeight = 21.sp)
+                SectionCard("本地报告", container = SoftPurple) {
+                    Text(text, fontSize = 12.5.sp, color = TextDark, lineHeight = 21.sp)
                 }
             }
             item {
                 SectionCard("导出") {
                     Text(
-                        "把本期完整数据（含每笔备注原文）导出成 JSON/CSV/MD，发到电脑上就能用 WorkBuddy 生成个性化分析。",
-                        fontSize = 12.sp, color = TextGray
+                        "把本期完整数据（含每笔备注原文和自动标签）导出成 JSON / CSV / MD，发到电脑上就能用 WorkBuddy 生成个性化分析。",
+                        fontSize = 11.5.sp, color = TextGray, lineHeight = 18.sp
                     )
                     Spacer(Modifier.height(10.dp))
                     Row {
                         Button(
                             onClick = { Export.share(ctx, p) },
                             modifier = Modifier.weight(1f).padding(end = 6.dp)
-                        ) { Text("导出给 Buddy 分析") }
+                        ) { Text("导出给 Buddy 分析", fontSize = 11.5.sp) }
                         OutlinedButton(
                             onClick = { Prefs.saveReport("${p.label}报·" + java.time.LocalDate.now().toString(), text) },
                             modifier = Modifier.weight(1f).padding(start = 6.dp)
-                        ) { Text("存入历史总结") }
+                        ) { Text("存入历史总结", fontSize = 11.5.sp) }
                     }
                 }
             }

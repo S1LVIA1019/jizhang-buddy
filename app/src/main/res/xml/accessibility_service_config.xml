@@ -5,4 +5,5 @@
     android:accessibilityFlags="flagDefault"
     android:canRetrieveWindowContent="false"
     android:notificationTimeout="200"
+    android:settingsActivity="com.buddy.jizhang/.ui.MainActivity"
     android:description="@string/accessibility_desc" />
