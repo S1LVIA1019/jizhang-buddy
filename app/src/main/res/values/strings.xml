@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">记账buddy</string>
+    <string name="accessibility_desc">监测购物类应用并显示消费提醒悬浮窗。本地运行，不收集任何内容。</string>
+</resources>
