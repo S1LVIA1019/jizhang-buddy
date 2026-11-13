@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # jizhang-buddy · 记账buddy
 
 个人记账 Android App（自用）。本地存储、无账号、无联网。
@@ -18,3 +19,6 @@
 推送 main 分支后 GitHub Actions 自动编译 debug APK 并发布到 Release。
 
 技术栈：Kotlin 1.9.24 · AGP 8.5.2 · Jetpack Compose (BOM 2024.06) · 原生 SQLite · ML Kit
+=======
+# jizhang-buddy
+>>>>>>> origin/main
