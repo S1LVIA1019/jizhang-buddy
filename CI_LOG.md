@@ -34,42 +34,19 @@ Daemon will be stopped at the end of the build
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets
 > Task :app:processDebugManifestForPackage
-> Task :app:desugarDebugFileDependencies
 > Task :app:compressDebugAssets
+> Task :app:desugarDebugFileDependencies
 > Task :app:processDebugResources
 > Task :app:checkDebugDuplicateClasses
 > Task :app:mergeDebugStartupProfile
 > Task :app:compileDebugKotlin
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:31:25 Unresolved reference: Prefs
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:35:21 Unresolved reference: Prefs
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:42:53 Unresolved reference: Prefs
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:42:87 Unresolved reference: Prefs
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:56:36 Unresolved reference: Prefs
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:56:65 Unresolved reference: Prefs
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:56:96 Unresolved reference: Prefs
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:56:127 Unresolved reference: Prefs
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:57:43 Unresolved reference: Prefs
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:57:69 Unresolved reference: Prefs
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:57:84 Unresolved reference: it
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:57:124 Unresolved reference: it
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:57:134 Unresolved reference: Prefs
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:57:149 Unresolved reference: it
+e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:48:154 'infix' modifier is required on 'append' in 'java.lang.StringBuilder'
 e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:115:5 Property must be initialized
+e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:117:9 A 'val'-property cannot have a setter
 e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:125:5 Property must be initialized
+e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:127:9 A 'val'-property cannot have a setter
 e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:134:5 Property must be initialized
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/service/WatchService.kt:65:17 Unresolved reference: layoutInflater
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/service/WatchService.kt:76:48 Variable expected
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/service/WatchService.kt:81:47 Variable expected
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/ui/Theme.kt:9:13 Conflicting declarations: public val Blue: Color, private val Blue: Color
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/ui/Theme.kt:10:13 Conflicting declarations: public val BlueLight: Color, private val BlueLight: Color
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/ui/Theme.kt:16:23 Overload resolution ambiguity: 
-private val Blue: Color defined in com.buddy.jizhang.ui in file Theme.kt
-public val Blue: Color defined in com.buddy.jizhang.ui in file Widgets.kt
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/ui/Theme.kt:20:25 Overload resolution ambiguity: 
-private val BlueLight: Color defined in com.buddy.jizhang.ui in file Theme.kt
-public val BlueLight: Color defined in com.buddy.jizhang.ui in file Widgets.kt
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/ui/Widgets.kt:25:5 Conflicting declarations: public val Blue: Color, private val Blue: Color
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/ui/Widgets.kt:26:5 Conflicting declarations: public val BlueLight: Color, private val BlueLight: Color
+e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:136:9 A 'val'-property cannot have a setter
 
 > Task :app:compileDebugKotlin FAILED
 > Task :app:mergeExtDexDebug
@@ -286,6 +263,6 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 1m 47s
+BUILD FAILED in 1m 52s
 23 actionable tasks: 23 executed
 ```
