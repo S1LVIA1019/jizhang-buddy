@@ -114,7 +114,6 @@ object Prefs {
 
     val triggerLog: String
         get() = gs("trigger_log", "")
-        private set
     fun appendTriggerLog(s: String) {
         val old = triggerLog.split("\n").filter { it.isNotBlank() }.toMutableList()
         old.add(0, s)
@@ -124,7 +123,6 @@ object Prefs {
 
     val financeLog: String
         get() = gs("finance_log", "")
-        private set
     fun appendFinanceLog(s: String) {
         val old = financeLog.split("\n").filter { it.isNotBlank() }.toMutableList()
         old.add(0, s)
@@ -133,7 +131,6 @@ object Prefs {
 
     val reportHistory: String
         get() = gs("report_history", "")
-        private set
     fun saveReport(title: String, text: String) {
         val entry = title + "\u241F" + text.replace("\n", "\u241E")
         val old = reportHistory.split("\n").filter { it.isNotBlank() }.toMutableList()
