@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -62,7 +63,7 @@ class WatchService : AccessibilityService() {
     private fun show(pkg: String?) {
         hide()
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        val v = layoutInflater.inflate(R.layout.overlay_view, null)
+        val v = LayoutInflater.from(this).inflate(R.layout.overlay_view, null)
 
         val (used, remain, goalLeft, months) = data()
         val main = Prefs.overlayText

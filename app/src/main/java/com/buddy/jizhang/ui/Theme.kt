@@ -6,9 +6,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val Blue = Color(0xFF0B57F0)
-private val BlueLight = Color(0xFF5E9CFF)
-
 @Composable
 fun JizhangTheme(content: @Composable () -> Unit) {
     MaterialTheme(

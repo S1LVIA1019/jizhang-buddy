@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import com.buddy.jizhang.data.Dao
+import com.buddy.jizhang.data.Prefs
 import com.buddy.jizhang.data.Tx
 import java.io.File
 import java.time.Instant
@@ -44,8 +45,7 @@ object Export {
             append(all.joinToString(",\n") { tx -> txJson(tx) })
             append("\n  ],\n")
             append("  \"memo_analysis\": {\n")
-            append(ma.entries.joinToString(",\n") { (k, v) -> "    \"${esc(k)}\": { \"count\": ${v.first}, \"amount\": ${v.second}" + " }" })
-            append("\n  },\n")
+            append(ma.entries.joinToString(",\n") { (k, v) -> "    \"${esc(k)}\": { \"count\": ${v.first}, \"amount\": ${v.second}" + " }" })            append("\n  },\n")
             append("  \"by_category\": [\n")
             append(byCat.joinToString(",\n") { "    { \"name\": \"${esc(it.first)}\", \"amount\": ${it.second} }" })
             append("\n  ],\n")
@@ -54,7 +54,9 @@ object Export {
             append("\n  ],\n")
             append("  \"limits\": {\n")
             append("    \"day\": ${Prefs.dayLimit}, \"week\": ${Prefs.weekLimit}, \"month\": ${Prefs.monthLimit}, \"year\": ${Prefs.yearLimit},\n")
-            append("    \"category\": { ${Prefs.categories.filter { Prefs.catLimit(it) > 0 }.joinToString(", ") { "\"${esc(it)}\": ${Prefs.catLimit(it)}" }} }\n  }\n}")
+            append("    \"category\": { ")
+            append(Prefs.categories.filter { cat -> Prefs.catLimit(cat) > 0 }.joinToString(", ") { cat -> "\"${esc(cat)}\": ${Prefs.catLimit(cat)}" })
+            append(" }\n  }\n}")
         }
 
         val csv = buildString {

@@ -112,7 +112,7 @@ object Prefs {
         get() = gs("api_key", "")
         set(v) = ps("api_key", v)
 
-    var triggerLog: String
+    val triggerLog: String
         get() = gs("trigger_log", "")
         private set
     fun appendTriggerLog(s: String) {
@@ -122,7 +122,7 @@ object Prefs {
     }
     fun clearTriggerLog() { ps("trigger_log", "") }
 
-    var financeLog: String
+    val financeLog: String
         get() = gs("finance_log", "")
         private set
     fun appendFinanceLog(s: String) {
@@ -131,7 +131,7 @@ object Prefs {
         ps("finance_log", old.take(30).joinToString("\n"))
     }
 
-    var reportHistory: String
+    val reportHistory: String
         get() = gs("report_history", "")
         private set
     fun saveReport(title: String, text: String) {
