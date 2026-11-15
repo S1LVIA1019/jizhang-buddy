@@ -17,6 +17,7 @@ Daemon will be stopped at the end of the build
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
 > Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:generateDebugBuildConfig
 > Task :app:generateDebugResValues
 > Task :app:checkDebugAarMetadata
 > Task :app:mapDebugSourceSetPaths
@@ -28,28 +29,23 @@ Daemon will be stopped at the end of the build
 > Task :app:parseDebugLocalResources
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
 > Task :app:javaPreCompileDebug
 > Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets
-> Task :app:processDebugManifestForPackage
-> Task :app:compressDebugAssets
 > Task :app:desugarDebugFileDependencies
+> Task :app:compressDebugAssets
 > Task :app:processDebugResources
 > Task :app:checkDebugDuplicateClasses
 > Task :app:mergeDebugStartupProfile
 > Task :app:compileDebugKotlin
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Export.kt:48:154 'infix' modifier is required on 'append' in 'java.lang.StringBuilder'
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:115:5 Property must be initialized
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:117:9 A 'val'-property cannot have a setter
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:125:5 Property must be initialized
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:127:9 A 'val'-property cannot have a setter
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:134:5 Property must be initialized
-e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/data/Prefs.kt:136:9 A 'val'-property cannot have a setter
+> Task :app:mergeExtDexDebug
 
 > Task :app:compileDebugKotlin FAILED
-> Task :app:mergeExtDexDebug
+e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Perm.kt:37:27 Unresolved reference: serviceInfo
+e: file:///home/runner/work/jizhang-buddy/jizhang-buddy/app/src/main/java/com/buddy/jizhang/core/Perm.kt:37:76 Unresolved reference: serviceInfo
 
 FAILURE: Build failed with an exception.
 
@@ -263,6 +259,6 @@ Caused by: org.jetbrains.kotlin.gradle.tasks.CompilationErrorException: Compilat
 	... 2 more
 
 
-BUILD FAILED in 1m 52s
-23 actionable tasks: 23 executed
+BUILD FAILED in 2m 3s
+24 actionable tasks: 24 executed
 ```
