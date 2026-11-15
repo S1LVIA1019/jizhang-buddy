@@ -42,14 +42,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.buddy.jizhang.core.Budget
 import com.buddy.jizhang.core.Export
 import com.buddy.jizhang.core.Perm
 import com.buddy.jizhang.core.Period
+import com.buddy.jizhang.core.Piggy
 import com.buddy.jizhang.core.fmt
 import com.buddy.jizhang.core.periodRange
 import com.buddy.jizhang.data.Dao
 import com.buddy.jizhang.data.Prefs
 import com.buddy.jizhang.service.WatchService
+import com.buddy.jizhang.update.UpdateManager
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -62,13 +65,17 @@ fun MeScreen(tick: Int, onTick: () -> Unit) {
         "settings" -> SettingsScreen(onBack = { page = "me" }, onTick = onTick)
         "history" -> HistoryScreen(onBack = { page = "me" })
         "perm" -> PermScreen(onBack = { page = "me" })
+        "goals" -> GoalsScreen(onBack = { page = "me" })
+        "update" -> UpdateScreen(onBack = { page = "me" })
+        "settles" -> SettlementsScreen(onBack = { page = "me" })
+        "widgethelp" -> WidgetHelpScreen(onBack = { page = "me" })
     }
 }
 
 @Composable
 private fun MeMenu(tick: Int, go: (String) -> Unit) {
     val ctx = LocalContext.current
-    val saved = remember(tick) { Dao.balance(ctx) }
+    val saved = remember(tick) { Piggy.balance(ctx) }
     val month = remember(tick) { periodRange(Period.MONTH) }
     val monthTx = remember(tick) { Dao.all(ctx, month.first, month.second) }
     val byAccount = remember(tick) {
@@ -90,7 +97,7 @@ private fun MeMenu(tick: Int, go: (String) -> Unit) {
             HeroCard(
                 label = "记账buddy",
                 big = "¥${fmt(saved)}",
-                note = "累计结余 · 连续记账 $streak 天 · 「${Prefs.goalName}」还差 ¥${fmt((Prefs.goalAmount - saved).coerceAtLeast(0.0))}"
+                note = "攒钱罐余额 · 连续记账 $streak 天 · 「${Prefs.goalName}」还差 ${Piggy.goalLeftText(ctx)}"
             )
         }
         item {
@@ -123,13 +130,16 @@ private fun MeMenu(tick: Int, go: (String) -> Unit) {
         }
         item {
             SectionCard("更多") {
+                MenuRow("攒钱罐 · 目标管理", "改名改金额、增添排队目标、达成归档") { go("goals") }
+                MenuRow("月末结算记录", "每月存了多少、罐余额变化") { go("settles") }
+                MenuRow("桌面小组件", "两种尺寸与添加方法") { go("widgethelp") }
+                MenuRow("检查更新", "直接覆盖安装，数据设置全保留") { go("update") }
                 MenuRow("权限自检 · 开启悬浮窗", "权限状态检测 + OPPO 受限设置引导") { go("perm") }
                 MenuRow("历史总结", "保存过的日/周/月报告") { go("history") }
-                MenuRow("账户管理 · 攒钱目标", "在「设置」里自定义") { go("settings") }
                 MenuRow("数据备份导出", "JSON / CSV / MD 一键分享") {
                     Export.share(ctx, Period.YEAR, allTime = true)
                 }
-                MenuRow("设置", "限额、品类、悬浮窗、提醒、数据") { go("settings") }
+                MenuRow("设置", "限额、品类、生活助手参数、悬浮窗、提醒") { go("settings") }
             }
         }
         item { Spacer(Modifier.height(90.dp)) }
@@ -242,6 +252,38 @@ private fun SettingsScreen(onBack: () -> Unit, onTick: () -> Unit) {
                 }
                 NumField("预警阈值（%，默认 80）", Prefs.warnPct.toDouble()) { Prefs.warnPct = it.toInt() }
                 NumField("大额阈值（元，默认 50）", Prefs.largeThreshold) { Prefs.largeThreshold = it }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = {
+                    Prefs.saveBasePlan()
+                    Toast.makeText(ctx, "当前限额已存为每月默认，跨月自动回到这套", Toast.LENGTH_SHORT).show()
+                }, modifier = Modifier.fillMaxWidth()) { Text("把当前限额存为每月默认", fontSize = 12.sp) }
+                Text("手动改的限额只影响本月；跨月自动回到这套默认，或回到已设置的下月推荐。",
+                    fontSize = 10.5.sp, color = TextGray, lineHeight = 16.sp)
+            }
+
+            SectionCard("生活助手参数（随时可改，默认 500 / 10%）") {
+                Text(
+                    "改完立即重算本月可花额与推荐值；下月推荐若已生成，会在首页提示「按新参数重新生成」。",
+                    fontSize = 11.sp, color = TextGray, lineHeight = 17.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                NumField("每月计划存（元）", Prefs.planSave) { Prefs.planSave = it }
+                NumField("应急缓冲（%）", Prefs.bufferPct) { Prefs.bufferPct = it }
+                NumField("超前提醒阈值（%）", Prefs.aheadPct) { Prefs.aheadPct = it }
+                NumField("餐饮上限（占可花额 %）", Prefs.foodCapPct) { Prefs.foodCapPct = it }
+                NumField("外食偏多时餐饮折扣（如 0.9）", Prefs.outsidePenalty) { Prefs.outsidePenalty = it }
+                NumField("奶茶零食偏多时娱乐折扣（如 0.8）", Prefs.funPenalty) { Prefs.funPenalty = it }
+                NumField("必要支出保底系数（如 1.05）", Prefs.necessityFactor) { Prefs.necessityFactor = it }
+                NumField("单次额度转移上限（%）", Prefs.transferCapPct) { Prefs.transferCapPct = it }
+            }
+
+            SectionCard("交通总结 · 合理打车关键词") {
+                Text(
+                    "备注里写了这些词，打车只记录不批评；留空则全部按普通打车统计。逗号分隔。",
+                    fontSize = 11.sp, color = TextGray, lineHeight = 17.sp
+                )
+                Spacer(Modifier.height(6.dp))
+                TextField1("关键词", Prefs.reasonKeywords) { Prefs.reasonKeywords = it }
             }
 
             SectionCard("品类管理") {
@@ -306,10 +348,38 @@ private fun SettingsScreen(onBack: () -> Unit, onTick: () -> Unit) {
                 ) { Text("添加账户") }
             }
 
-            SectionCard("生活费与攒钱目标") {
+            SectionCard("生活费与攒钱罐") {
                 NumField("每月生活费（元）", Prefs.allowance) { Prefs.allowance = it }
-                TextField1("目标名称", Prefs.goalName) { Prefs.goalName = it }
-                NumField("目标金额（元）", Prefs.goalAmount) { Prefs.goalAmount = it }
+                TextField1("当前目标名称", Prefs.goalName) { Prefs.goalName = it }
+                NumField("当前目标金额（元）", Prefs.goalAmount) { Prefs.goalAmount = it }
+                Text(
+                    "增添排队目标、改名改金额、归档已达成目标，在「我的 → 攒钱罐 · 目标管理」。改名不清空已攒的钱。",
+                    fontSize = 11.sp, color = TextGray, lineHeight = 17.sp
+                )
+            }
+
+            SectionCard("下月推荐限额（月末自动生成）") {
+                val (recTotal, recCats) = Budget.nextRecommendData()
+                val b = Budget.current(ctx)
+                KV("下月有效生活费", "¥${fmt(b.L)}")
+                KV("缓冲 / 计划存", "¥${fmt(b.B)} / ¥${fmt(b.S)}")
+                KV("可花额", "¥${fmt(b.C)}")
+                KV("推荐总支出上限", "¥${fmt(recTotal)}")
+                recCats.filter { it.value > 0 }.forEach { (c, v) -> KV(c, "¥${fmt(v)}") }
+                if (Budget.paramsChanged()) {
+                    Text("参数改过了，先按新参数重新生成再设置。", fontSize = 11.sp, color = OverRed)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(onClick = { Budget.forceRefreshNextRecommend(ctx); onTick() },
+                        modifier = Modifier.fillMaxWidth()) { Text("按新参数重新生成", fontSize = 12.sp) }
+                    Spacer(Modifier.height(6.dp))
+                }
+                Button(onClick = {
+                    Budget.applyNextMonth(ctx)
+                    Toast.makeText(ctx, "下月限额已设置为推荐值，跨月自动生效", Toast.LENGTH_SHORT).show()
+                    onTick()
+                }, modifier = Modifier.fillMaxWidth()) { Text("一键设置下月限额", fontSize = 12.sp) }
+                Text("只写入下月快照，不影响本月；跨月自动生效。",
+                    fontSize = 10.5.sp, color = TextGray, modifier = Modifier.padding(top = 6.dp))
             }
 
             SectionCard("学期") {
@@ -400,8 +470,9 @@ private fun SettingsScreen(onBack: () -> Unit, onTick: () -> Unit) {
             }
 
             SectionCard("关于") {
-                KV("版本", "1.1.0 (v2)")
+                KV("版本", "1.2.0 · build ${UpdateManager.currentVersion()}")
                 KV("数据存储", "全部在本机，不上传")
+                KV("更新", "同签名覆盖安装，账目与设置全保留")
             }
             Spacer(Modifier.height(60.dp))
         }

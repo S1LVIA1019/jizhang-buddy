@@ -1,5 +1,7 @@
 package com.buddy.jizhang.core
 
+import com.buddy.jizhang.data.Prefs
+
 object Tags {
 
     val rules = linkedMapOf(
@@ -10,24 +12,32 @@ object Tags {
         "化妆品" to "化妆品", "口红" to "化妆品", "护肤" to "化妆品", "粉底" to "化妆品",
         "商场" to "外食", "餐厅" to "外食", "聚餐" to "外食", "出去吃" to "外食", "火锅" to "外食",
         "烤肉" to "外食", "麦当劳" to "外食", "肯德基" to "外食", "必胜客" to "外食", "探店" to "外食",
-        "打车" to "打车", "滴滴" to "打车", "出租" to "打车",
-        "地铁" to "交通", "公交" to "交通", "单车" to "交通", "火车" to "交通", "高铁" to "交通",
+        "打车" to "打车", "滴滴" to "打车", "出租" to "打车", "网约车" to "打车",
+        "地铁" to "公交地铁", "公交" to "公交地铁", "巴士" to "公交地铁",
+        "单车" to "公交地铁", "轻轨" to "公交地铁",
+        "火车" to "长途", "高铁" to "长途",
         "水果" to "水果",
-        "游戏" to "娱乐", "电影" to "娱乐", "会员" to "娱乐", "KTV" to "娱乐", "演出" to "娱乐",
-        "奶茶店" to "奶茶"
+        "游戏" to "娱乐", "电影" to "娱乐", "会员" to "娱乐", "KTV" to "娱乐", "演出" to "娱乐"
     )
 
+    /** 返回逗号分隔的全部标签；备注含合理理由的打车额外打「合理打车」 */
     fun tag(memo: String): String? {
         val m = memo.trim()
         if (m.isEmpty()) return null
-        for ((k, v) in rules) if (m.contains(k)) return v
-        return null
+        val out = linkedSetOf<String>()
+        for ((k, v) in rules) if (m.contains(k)) out.add(v)
+        if (out.contains("打车")) {
+            for (r in Prefs.reasonList()) {
+                if (m.contains(r)) { out.add("合理打车"); break }
+            }
+        }
+        return if (out.isEmpty()) null else out.joinToString(",")
     }
 
     fun memoAnalysis(txs: List<com.buddy.jizhang.data.Tx>): LinkedHashMap<String, Pair<Int, Double>> {
         val m = LinkedHashMap<String, Pair<Int, Double>>()
         for (t in txs) {
-            if (t.kind != "expense") continue
+            if (t.kind != "expense" && t.kind != "piggy") continue
             for (g in t.tags.split(",").map { it.trim() }.filter { it.isNotEmpty() }) {
                 val cur = m[g] ?: (0 to 0.0)
                 m[g] = (cur.first + 1) to (cur.second + t.amount)

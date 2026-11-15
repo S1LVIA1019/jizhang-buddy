@@ -3,7 +3,6 @@ package com.buddy.jizhang.service
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.graphics.PixelFormat
-import android.os.Build
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -12,8 +11,9 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.widget.TextView
 import com.buddy.jizhang.R
+import com.buddy.jizhang.core.Budget
 import com.buddy.jizhang.core.Period
-import com.buddy.jizhang.core.Summary
+import com.buddy.jizhang.core.Piggy
 import com.buddy.jizhang.core.fmt
 import com.buddy.jizhang.core.periodRange
 import com.buddy.jizhang.data.Dao
@@ -65,21 +65,27 @@ class WatchService : AccessibilityService() {
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val v = LayoutInflater.from(this).inflate(R.layout.overlay_view, null)
 
-        val (used, remain, goalLeft, months) = data()
+        val d = data()
+        val aheadWord = if (d.isAhead) "本月已超前 ¥${fmt(d.ahead)}，还买？" else ""
         val main = Prefs.overlayText
-            .replace("{已用}", fmt(used))
-            .replace("{剩余}", fmt(remain))
+            .replace("{已用}", fmt(d.used))
+            .replace("{剩余}", fmt(d.remain))
             .replace("{目标名}", Prefs.goalName)
-            .replace("{还差}", fmt(goalLeft))
-            .replace("{N个月}", months.coerceAtLeast(1).toString())
+            .replace("{还差}", fmt(d.goalLeft))
+            .replace("{超前}", aheadWord)
             .replace("{金额}", "")
+            .trim()
 
-        v.findViewById<TextView>(R.id.tv_main).text = main
-        val sub = buildString {
-            append("「${Prefs.goalName}」还差 ¥${fmt(goalLeft)}")
-            if (months > 0 && months <= 60) append("，照这速度还得 $months 个月")
+        if (d.isAhead) {
+            v.setBackgroundResource(R.drawable.overlay_bg_ahead)
+            v.findViewById<TextView>(R.id.tv_title).text = "记账buddy · 本月超前 ¥${fmt(d.ahead)}"
+        } else {
+            v.setBackgroundResource(R.drawable.overlay_bg)
+            v.findViewById<TextView>(R.id.tv_title).text = "记账buddy"
         }
-        v.findViewById<TextView>(R.id.tv_sub).text = sub
+        v.findViewById<TextView>(R.id.tv_main).text = main
+        v.findViewById<TextView>(R.id.tv_sub).text =
+            "本月预计能存 ¥${fmt(d.expected)}\n「${Prefs.goalName}」还差 ${Piggy.goalLeftText(this)}"
 
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -101,9 +107,7 @@ class WatchService : AccessibilityService() {
         }
         overlay = v
 
-        if (pkg != null) {
-            Prefs.appendTriggerLog("${nowStr()} ${Prefs.appNames[pkg] ?: pkg}")
-        }
+        if (pkg != null) Prefs.appendTriggerLog("${nowStr()} ${Prefs.appNames[pkg] ?: pkg}")
     }
 
     fun hide() {
@@ -112,17 +116,28 @@ class WatchService : AccessibilityService() {
         overlay = null
     }
 
-    private fun data(): Data4 {
+    private fun data(): OverlayData {
         val (f, t) = periodRange(Period.MONTH)
         val used = Dao.sum(this, f, t, "expense")
-        val remain = (Prefs.monthLimit - used).coerceAtLeast(0.0)
-        val saved = Dao.balance(this)
-        val goalLeft = (Prefs.goalAmount - saved).coerceAtLeast(0.0)
-        val months = Summary.monthsToGoal(this)
-        return Data4(used, remain, goalLeft, months)
+        val b = Budget.current(this)
+        return OverlayData(
+            used = used,
+            remain = b.remain,
+            expected = Piggy.expectedBalance(this),
+            goalLeft = Piggy.goalLeft(this),
+            ahead = b.ahead,
+            isAhead = b.isAhead
+        )
     }
 
-    private data class Data4(val used: Double, val remain: Double, val goalLeft: Double, val months: Int)
+    private data class OverlayData(
+        val used: Double,
+        val remain: Double,
+        val expected: Double,
+        val goalLeft: Double,
+        val ahead: Double,
+        val isAhead: Boolean
+    )
 
     private fun makeDraggable(v: View, lp: WindowManager.LayoutParams) {
         var touchX = 0f
@@ -160,6 +175,7 @@ class WatchService : AccessibilityService() {
 
     override fun onDestroy() {
         instance = null
+        hide()
         super.onDestroy()
     }
 }

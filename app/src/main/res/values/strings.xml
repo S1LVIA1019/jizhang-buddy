@@ -2,4 +2,6 @@
     <string name="app_name">记账buddy</string>
     <string name="accessibility_desc">监测购物类应用并显示消费提醒悬浮窗。本地运行，不收集任何内容。</string>
     <string name="accessibility_service_label">记账buddy · 购物提醒</string>
+    <string name="widget_small_desc">今日进度 · 小卡</string>
+    <string name="widget_big_desc">生活助手 · 大卡</string>
 </resources>

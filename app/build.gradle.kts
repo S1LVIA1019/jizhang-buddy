@@ -3,20 +3,36 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val ciBuild = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 3
+
 android {
     namespace = "com.buddy.jizhang"
     compileSdk = 34
+
+    signingConfigs {
+        create("fixed") {
+            storeFile = file("keystore.p12")
+            storeType = "PKCS12"
+            storePassword = "jizhang2026"
+            keyAlias = "jizhangbuddy"
+            keyPassword = "jizhang2026"
+        }
+    }
 
     defaultConfig {
         applicationId = "com.buddy.jizhang"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = ciBuild
+        versionName = "1.2.0"
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("fixed")
+        }
         release {
+            signingConfig = signingConfigs.getByName("fixed")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
@@ -31,6 +47,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"

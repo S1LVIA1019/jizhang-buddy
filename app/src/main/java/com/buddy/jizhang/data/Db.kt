@@ -4,6 +4,10 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 data class Tx(
     val id: Long = 0,
@@ -18,8 +22,16 @@ data class Tx(
     val merchant: String
 )
 
+data class Settlement(
+    val ym: String,
+    val income: Double,
+    val expense: Double,
+    val balance: Double,
+    val piggyAfter: Double
+)
+
 class Db private constructor(ctx: Context) :
-    SQLiteOpenHelper(ctx.applicationContext, "jizhang.db", null, 1) {
+    SQLiteOpenHelper(ctx.applicationContext, "jizhang.db", null, 2) {
 
     companion object {
         @Volatile private var inst: Db? = null
@@ -34,9 +46,19 @@ class Db private constructor(ctx: Context) :
                 "category TEXT, account TEXT, memo TEXT, tags TEXT, source TEXT, merchant TEXT)"
         )
         db.execSQL("CREATE INDEX idx_ts ON tx(ts)")
+        createSettle(db)
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) { }
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        createSettle(db)
+    }
+
+    private fun createSettle(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS settle(ym TEXT PRIMARY KEY, income REAL, expense REAL, " +
+                "balance REAL, piggy_after REAL, created_at INTEGER)"
+        )
+    }
 }
 
 object Dao {
@@ -131,6 +153,7 @@ object Dao {
         }
     }
 
+    /** 账本总余额（含所有月份、不含罐内支出） */
     fun balance(ctx: Context): Double {
         Db.get(ctx).readableDatabase.rawQuery(
             "SELECT (SELECT total(amount) FROM tx WHERE kind='income') - " +
@@ -140,7 +163,56 @@ object Dao {
         }
     }
 
+    fun firstTxTs(ctx: Context): Long? {
+        Db.get(ctx).readableDatabase.rawQuery("SELECT min(ts) FROM tx", null).use { c ->
+            return if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
+        }
+    }
+
+    fun insertSettlement(ctx: Context, s: Settlement) {
+        val cv = ContentValues().apply {
+            put("ym", s.ym)
+            put("income", s.income)
+            put("expense", s.expense)
+            put("balance", s.balance)
+            put("piggy_after", s.piggyAfter)
+            put("created_at", System.currentTimeMillis())
+        }
+        Db.get(ctx).writableDatabase.insertWithOnConflict("settle", null, cv, SQLiteDatabase.CONFLICT_IGNORE)
+    }
+
+    fun settlementBalanceTotal(ctx: Context): Double {
+        Db.get(ctx).readableDatabase.rawQuery("SELECT total(balance) FROM settle", null).use { c ->
+            return if (c.moveToFirst()) c.getDouble(0) else 0.0
+        }
+    }
+
+    fun settlements(ctx: Context): List<Settlement> {
+        val out = mutableListOf<Settlement>()
+        Db.get(ctx).readableDatabase.rawQuery(
+            "SELECT ym,income,expense,balance,piggy_after FROM settle ORDER BY ym DESC", null
+        ).use { c ->
+            while (c.moveToNext()) out += Settlement(c.getString(0), c.getDouble(1), c.getDouble(2), c.getDouble(3), c.getDouble(4))
+        }
+        return out
+    }
+
+    fun piggyTotal(ctx: Context): Double {
+        Db.get(ctx).readableDatabase.rawQuery(
+            "SELECT total(amount) FROM tx WHERE kind='piggy'", null
+        ).use { c ->
+            return if (c.moveToFirst()) c.getDouble(0) else 0.0
+        }
+    }
+
     fun clearAll(ctx: Context) {
-        Db.get(ctx).writableDatabase.delete("tx", null, null)
+        val db = Db.get(ctx).writableDatabase
+        db.delete("tx", null, null)
+        db.delete("settle", null, null)
     }
 }
+
+fun Long.toLocalDate(): LocalDate =
+    Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
+
+val ymFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM")

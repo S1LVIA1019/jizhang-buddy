@@ -48,9 +48,11 @@ import com.buddy.jizhang.data.Tx
 import com.buddy.jizhang.ui.Blue
 import com.buddy.jizhang.ui.Chips
 import com.buddy.jizhang.ui.OverRed
+import com.buddy.jizhang.ui.PageBg
 import com.buddy.jizhang.ui.SectionCard
 import com.buddy.jizhang.ui.TextDark
 import com.buddy.jizhang.ui.TextGray
+import com.buddy.jizhang.widget.WidgetUpdater
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
@@ -138,7 +140,7 @@ fun ImportScreen() {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(Color(0xFFF4F6FA))) {
+    Column(Modifier.fillMaxSize().background(PageBg)) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = { (ctx as? ComponentActivity)?.finish() }) { Text("返回") }
             Text("截图导入", fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 14.dp))
@@ -236,6 +238,7 @@ fun ImportScreen() {
                                     )
                                 }
                                 LimitNotifier.afterExpense(ctx)
+                                WidgetUpdater.refresh(ctx)
                                 Toast.makeText(ctx, "已导入 ${chosen.size} 笔", Toast.LENGTH_SHORT).show()
                                 (ctx as? ComponentActivity)?.finish()
                             },

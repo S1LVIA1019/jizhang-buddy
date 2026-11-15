@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.buddy.jizhang.core.Perm
+import com.buddy.jizhang.data.Prefs
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,17 +48,19 @@ class MainActivity : ComponentActivity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
         setContent {
-            JizhangApp()
+            JizhangApp(intent.getIntExtra("tab", 0))
         }
     }
 }
 
 @Composable
-fun JizhangApp() {
+fun JizhangApp(startTab: Int = 0) {
     val ctx = LocalContext.current
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable { mutableIntStateOf(startTab) }
     var tick by remember { mutableIntStateOf(0) }
-    var showGuide by rememberSaveable { mutableStateOf(!Perm.accessibilityOn(ctx)) }
+    var showGuide by rememberSaveable {
+        mutableStateOf(!Prefs.guideShown && !Perm.accessibilityOn(ctx))
+    }
 
     JizhangTheme {
         Scaffold(
@@ -104,7 +107,10 @@ fun JizhangApp() {
         }
 
         if (showGuide) {
-            PermGuideDialog(onDismiss = { showGuide = false })
+            PermGuideDialog(onDismiss = {
+                showGuide = false
+                Prefs.guideShown = true
+            })
         }
     }
 }

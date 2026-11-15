@@ -15,6 +15,28 @@ object Summary {
         Period.YEAR -> longPeriod(ctx, "年")
     }
 
+    /** 交通：公交地铁比打车经济；备注写了合理理由的只提不批评 */
+    fun transport(ctx: Context, ex: List<com.buddy.jizhang.data.Tx>): String {
+        val ma = Tags.memoAnalysis(ex)
+        val taxiN = ma["打车"]?.first ?: 0
+        val taxiAmt = ma["打车"]?.second ?: 0.0
+        val reasonableN = ma["合理打车"]?.first ?: 0
+        val busN = ma["公交地铁"]?.first ?: 0
+        if (taxiN == 0) return "交通：本月没打车，公交地铁 $busN 次，这块挺省。"
+        val busCost = 3.0 * taxiN
+        val extra = (taxiAmt - busCost).coerceAtLeast(0.0)
+        val sb = StringBuilder()
+        sb.append("交通：打车 $taxiN 次 ¥${fmt(taxiAmt)}，同段公交地铁约 ¥${fmt(busCost)}，多花约 ¥${fmt(extra)}")
+        if (reasonableN > 0) {
+            sb.append("\n     其中 $reasonableN 次备注写了合理理由（和同学一起 / 赶时间等），只记录，不算乱花")
+        }
+        val normal = taxiN - reasonableN
+        if (normal > 0 && extra > 0) {
+            sb.append("\n     剩下 $normal 次不赶时间的话换公交地铁，一个月大概能省 ¥${fmt(extra * normal / taxiN)}")
+        }
+        return sb.toString()
+    }
+
     fun daily(ctx: Context): String {
         val (f, t) = periodRange(Period.DAY)
         val ex = Dao.all(ctx, f, t).filter { it.kind == "expense" }
@@ -22,19 +44,24 @@ object Summary {
         val (mf, mt) = periodRange(Period.MONTH)
         val monthUsed = Dao.sum(ctx, mf, mt, "expense")
         val sb = StringBuilder()
+        Budget.aheadLine(ctx)?.let { sb.append(it).append("\n") }
         sb.append("今天花了 ¥${fmt(spent)}（${ex.size} 笔）")
         if (ex.isEmpty()) {
             sb.append("\n今天还没有记录，记得记一笔。")
+            val b = Budget.current(ctx)
+            sb.append("\n本月还剩 ¥${fmt(b.remain.coerceAtLeast(0.0))}，接下来每天最多 ¥${fmt(b.perDayLeft.coerceAtLeast(0.0))}")
             return sb.toString()
         }
         val byCat = ex.groupBy { it.category }.map { "${it.key}¥${fmt(it.value.sumOf { v -> v.amount })}" }
         sb.append("\n").append(byCat.joinToString(" / "))
-        if (Prefs.monthLimit > 0) {
-            sb.append("\n本月已用 ¥${fmt(monthUsed)}，剩余 ¥${fmt((Prefs.monthLimit - monthUsed).coerceAtLeast(0.0))}")
-        }
+        val b = Budget.current(ctx)
+        sb.append("\n本月已用 ¥${fmt(monthUsed)} / 可花 ¥${fmt(b.C)}，剩 ¥${fmt(b.remain.coerceAtLeast(0.0))}")
         val noMemo = ex.count { it.memo.isBlank() }
         if (noMemo > 0) sb.append("\n有 $noMemo 笔没写备注，补上能分析得更准。")
         sb.append("\n").append(dailyComment(ex))
+        if (ex.any { it.tags.contains("打车") || it.tags.contains("公交地铁") }) {
+            sb.append("\n").append(transport(ctx, ex))
+        }
         return sb.toString()
     }
 
@@ -68,15 +95,14 @@ object Summary {
         }
         sb.append("\n外食 ${ma["外食"]?.first ?: 0} 次 / 外卖 ${ma["外卖"]?.first ?: 0} 次 / 奶茶 ${ma["奶茶"]?.first ?: 0} 杯 / 零食 ${ma["零食"]?.first ?: 0} 次")
         val biggest = ex.maxByOrNull { it.amount }
-        if (biggest != null) {
-            sb.append("\n最贵一笔：¥${fmt(biggest.amount)}（${biggest.memo.ifBlank { biggest.category }}）")
-        }
-        if (Prefs.monthLimit > 0) {
-            val (mf, mt) = periodRange(Period.MONTH)
-            val mu = Dao.sum(ctx, mf, mt, "expense")
-            sb.append("\n本月已用 ¥${fmt(mu)} / ¥${fmt(Prefs.monthLimit)}")
-        }
+        if (biggest != null) sb.append("\n最贵一笔：¥${fmt(biggest.amount)}（${biggest.memo.ifBlank { biggest.category }}）")
+        val b = Budget.current(ctx)
+        sb.append("\n本月进度 ${LifeAssist.progressPct(ctx)}%，本月还剩 ¥${fmt(b.remain.coerceAtLeast(0.0))}")
         sb.append("\n").append(weekComment(spent, ma))
+        if (ex.any { it.tags.contains("打车") || it.tags.contains("公交地铁") }) {
+            sb.append("\n").append(transport(ctx, ex))
+        }
+        sb.append("\n").append(piggyLine(ctx))
         return sb.toString()
     }
 
@@ -91,10 +117,17 @@ object Summary {
         }
     }
 
+    private fun piggyLine(ctx: Context): String {
+        val bal = Piggy.balance(ctx)
+        val used = Piggy.usedInMonth(ctx)
+        return "攒钱罐：余额 ¥${fmt(bal)}，本月动用 ¥${fmt(used)}；「${Prefs.goalName}」还差 ${Piggy.goalLeftText(ctx)}"
+    }
+
     fun monthly(ctx: Context): String {
         val (f, t) = periodRange(Period.MONTH)
         val all = Dao.all(ctx, f, t)
         val ex = all.filter { it.kind == "expense" }
+        val piggy = all.filter { it.kind == "piggy" }
         val income = all.filter { it.kind == "income" }.sumOf { it.amount }
         val spent = ex.sumOf { it.amount }
         val balance = income - spent
@@ -120,14 +153,17 @@ object Summary {
         }
         sb.append("。消费健康度 $score 分，").append(tone(score)).append("\n")
 
-        sb.append("【2】收支：收入 ¥${fmt(income)}，支出 ¥${fmt(spent)}，")
+        val b = Budget.current(ctx)
+        sb.append("【2】收支：收入 ¥${fmt(income)}，日常支出 ¥${fmt(spent)}")
+        if (piggy.isNotEmpty()) sb.append("，另有攒钱罐支出 ¥${fmt(piggy.sumOf { it.amount })}（实际共花 ¥${fmt(spent + piggy.sumOf { it.amount })}）")
+        sb.append("，")
         if (balance >= 0) sb.append("省下 ¥${fmt(balance)}（结余率 ${(rate * 100).toInt()}%）")
         else sb.append("超支 ¥${fmt(-balance)}")
         sb.append("\n")
 
         val byCat = ex.groupBy { it.category }.map { it.key to it.value.sumOf { v -> v.amount } }.sortedByDescending { it.second }
         sb.append("【3】流向：").append(
-            byCat.take(3).joinToString("、") { "${it.first} ¥${fmt(it.second)}(${(it.second / spent * 100).toInt()}%)" }
+            byCat.take(3).joinToString("、") { "${it.first} ¥${fmt(it.second)}(${(it.second / spent.coerceAtLeast(0.01) * 100).toInt()}%)" }
                 .ifBlank { "无记录" }
         ).append("\n")
 
@@ -165,15 +201,27 @@ object Summary {
         sb.append("【7】建议：")
         sb.append(advice(ma, byCat, limitUse)).append("\n")
 
-        val saved = Dao.balance(ctx)
-        val goalLeft = (Prefs.goalAmount - saved).coerceAtLeast(0.0)
-        sb.append("【8】攒钱：累计结余 ¥${fmt(saved)}")
-        if (Prefs.goalAmount > 0) {
-            sb.append("，「${Prefs.goalName}」还差 ¥${fmt(goalLeft)}")
-            val months = monthsToGoal(ctx)
-            if (months > 0) sb.append("，按近三月平均 $months 个月可达")
-            else if (months == 0) sb.append("，已达成！")
-            else sb.append("，当前结余速度还不够，先稳住支出")
+        sb.append("【8】攒钱罐：余额 ¥${fmt(Piggy.balance(ctx))}")
+        if (piggy.isNotEmpty()) {
+            sb.append("，本月动用 ${piggy.size} 笔共 ¥${fmt(piggy.sumOf { it.amount })}（")
+            sb.append(piggy.groupBy { it.category }.entries.joinToString("、") { "${it.key} ¥${fmt(it.value.sumOf { v -> v.amount })}" })
+            sb.append("）")
+        }
+        sb.append("\n     「${Prefs.goalName}」还差 ${Piggy.goalLeftText(ctx)}")
+        if (Piggy.reached(ctx)) sb.append("（已达成，仍继续累加）")
+        val months = monthsToGoal(ctx)
+        if (months > 0) sb.append("，按近三月平均 $months 个月可达")
+        sb.append("\n")
+
+        sb.append("【9】交通：").append(transport(ctx, ex).removePrefix("交通：")).append("\n")
+
+        sb.append("【10】下月预算：有效生活费 ¥${fmt(b.L)}")
+        if (b.lastOverspend > 0) sb.append("（上月超支扣了 ¥${fmt(b.lastOverspend)}）")
+        sb.append("，缓冲 ¥${fmt(b.B)}，计划存 ¥${fmt(b.S)}，可花 ¥${fmt(b.C)}")
+        val (recTotal, recCats) = Budget.nextRecommendData()
+        if (recTotal > 0) {
+            sb.append("\n     推荐总支出上限 ¥${fmt(recTotal)}，可在设置里点「一键设置下月限额」")
+            sb.append("\n     ").append(recCats.entries.filter { it.value > 0 }.joinToString(" / ") { "${it.key} ¥${fmt(it.value)}" })
         }
         sb.append("\n")
         return sb.toString()
@@ -187,7 +235,11 @@ object Summary {
         if (outside >= 80) tips.add("外食 ¥${fmt(outside)}，换成食堂大概省 ¥${fmt(outside * 0.6)}")
         val funCat = byCat.firstOrNull { it.first == "休闲娱乐" }?.second ?: 0.0
         val funLimit = Prefs.catLimit("休闲娱乐")
-        if (funLimit > 0 && funCat >= funLimit * 0.7) tips.add("休闲娱乐已用 ${if (funLimit > 0) (funCat / funLimit * 100).toInt() else 100}%，月底前先停一停")
+        if (funLimit > 0 && funCat >= funLimit * 0.7) tips.add("休闲娱乐已用 ${(funCat / funLimit * 100).toInt()}%，月底前先停一停")
+        val taxi = ma["打车"]?.second ?: 0.0
+        val reasonable = ma["合理打车"]?.first ?: 0
+        val taxiN = ma["打车"]?.first ?: 0
+        if (taxiN > reasonable) tips.add("打车 ¥${fmt(taxi)}，不赶时间的几趟换公交地铁能省一些")
         if (limitUse >= 1.0) tips.add("本月已超限，接下来的消费先问自己一句：真的需要吗")
         if (tips.isEmpty()) tips.add("没有明显失控的地方，维持现状就好")
         return tips.take(3).joinToString("；")
@@ -212,7 +264,7 @@ object Summary {
             if (food > 0) c / food else 0.0
         }
         sb.append("外食/外卖/奶茶/零食合计占比 ${((1.0 - canteenRatio) * 100).toInt()}%\n")
-        sb.append("累计结余 ¥${fmt(Dao.balance(ctx))}，离「${Prefs.goalName}」还差 ¥${fmt((Prefs.goalAmount - Dao.balance(ctx)).coerceAtLeast(0.0))}")
+        sb.append("攒钱罐余额 ¥${fmt(Piggy.balance(ctx))}，离「${Prefs.goalName}」还差 ${Piggy.goalLeftText(ctx)}")
         return sb.toString()
     }
 
@@ -226,18 +278,16 @@ object Summary {
     }
 
     fun monthsToGoal(ctx: Context): Int {
-        val saved = Dao.balance(ctx)
+        val saved = Piggy.balance(ctx)
         val goalLeft = Prefs.goalAmount - saved
         if (goalLeft <= 0) return 0
         var total = 0.0
-        var months = 0
         for (i in 0 until 3) {
             val base = LocalDate.now().minusMonths(i.toLong()).withDayOfMonth(1)
             val (f, t) = periodRange(Period.MONTH, base)
             total += Dao.sum(ctx, f, t, "income") - Dao.sum(ctx, f, t, "expense")
-            months++
         }
-        val avg = if (months > 0) total / months else 0.0
+        val avg = total / 3.0
         if (avg < 100) return -1
         return kotlin.math.ceil(goalLeft / avg).toInt()
     }

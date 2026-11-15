@@ -57,6 +57,8 @@ fun StatsScreen(tick: Int) {
     val income = remember(tick, periodName) { Dao.sum(ctx, range.first, range.second, "income") }
     val txs = remember(tick, periodName) { Dao.all(ctx, range.first, range.second) }
     val ex = remember(tick, periodName) { txs.filter { it.kind == "expense" } }
+    val piggy = remember(tick, periodName) { txs.filter { it.kind == "piggy" } }
+    val piggySum = piggy.sumOf { it.amount }
     val balance = income - expense
 
     LazyColumn(Modifier.fillMaxSize()) {
@@ -82,7 +84,9 @@ fun StatsScreen(tick: Int) {
             HeroCard(
                 label = "${p.label}支出",
                 big = "¥${fmt(expense)}",
-                note = if (txs.isEmpty()) "本期还没有记录" else "共 ${txs.size} 笔，含未记收入",
+                note = if (txs.isEmpty()) "本期还没有记录" else
+                    "共 ${txs.size} 笔；日常 ¥${fmt(expense)}" +
+                        if (piggySum > 0) " ＋ 罐内 ¥${fmt(piggySum)} ＝ 实际共花 ¥${fmt(expense + piggySum)}" else "",
                 split = listOf(
                     "收入" to "¥${fmt(income)}",
                     (if (balance >= 0) "结余" else "超支") to "¥${fmt(kotlin.math.abs(balance))}",
@@ -130,6 +134,22 @@ fun StatsScreen(tick: Int) {
             }
         }
 
+        if (piggy.isNotEmpty()) {
+            item {
+                SectionCard("攒钱罐动用（不计入日常结余）", container = SoftRed) {
+                    KV("共 ${piggy.size} 笔", "¥${fmt(piggySum)}", OverRed)
+                    piggy.take(8).forEach { tx ->
+                        KV(tx.memo.ifBlank { tx.category }, "-¥${fmt(tx.amount)}", OverRed)
+                    }
+                    Text(
+                        "这部分花的是已存下的钱，只减攒钱罐余额，不参与本月结余与限额计算。",
+                        fontSize = 11.sp, color = TextGray, lineHeight = 17.sp,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
+            }
+        }
+
         item {
             SectionCard("流水（${txs.size} 笔）") {
                 if (txs.isEmpty()) {
@@ -143,16 +163,20 @@ fun StatsScreen(tick: Int) {
                             Column(Modifier.fillMaxWidth(0.7f)) {
                                 Text(tx.memo.ifBlank { tx.category }, fontSize = 13.sp, color = TextDark)
                                 Text(
-                                    "${timeShort(tx.ts)} · ${tx.category} · ${tx.account}" +
+                                    "${timeShort(tx.ts)} · ${if (tx.kind == "piggy") "攒钱罐 · " else ""}${tx.category} · ${tx.account}" +
                                         if (tx.tags.isNotBlank()) " · ${tx.tags}" else "",
                                     fontSize = 10.5.sp, color = TextGray
                                 )
                             }
                             Text(
-                                (if (tx.kind == "expense") "-¥" else "+¥") + fmt(tx.amount),
+                                (if (tx.kind == "income") "+¥" else "-¥") + fmt(tx.amount),
                                 fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (tx.kind == "expense") TextDark else OkGreen
+                                color = when (tx.kind) {
+                                    "income" -> OkGreen
+                                    "piggy" -> OverRed
+                                    else -> TextDark
+                                }
                             )
                         }
                     }

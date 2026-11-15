@@ -25,11 +25,13 @@ object Export {
         val (f, t) = if (allTime) 0L to Long.MAX_VALUE else periodRange(p)
         val all = Dao.all(ctx, f, t)
         val ex = all.filter { it.kind == "expense" }
+        val piggy = all.filter { it.kind == "piggy" }
         val income = all.filter { it.kind == "income" }.sumOf { it.amount }
         val spent = ex.sumOf { it.amount }
-        val ma = Tags.memoAnalysis(ex)
-        val saved = Dao.balance(ctx)
-        val goalLeft = (Prefs.goalAmount - saved).coerceAtLeast(0.0)
+        val ma = Tags.memoAnalysis(ex + piggy)
+        val saved = Piggy.balance(ctx)
+        val goalLeft = Prefs.goalAmount - saved
+        val budget = Budget.current(ctx)
         val byCat = ex.groupBy { it.category }.map { it.key to it.value.sumOf { v -> v.amount } }.sortedByDescending { it.second }
         val byAccount = ex.groupBy { it.account }.map { it.key to it.value.sumOf { v -> v.amount } }.sortedByDescending { it.second }
 
@@ -40,7 +42,8 @@ object Export {
             append("    \"balance\": ${income - spent},\n")
             append("    \"saving_rate\": ${if (income > 0) String.format(java.util.Locale.CHINA, "%.3f", (income - spent) / income) else "0"},\n")
             append("    \"budget\": { \"limit\": $limit, \"used\": $spent, \"remaining\": ${(limit - spent).coerceAtLeast(0.0)} }\n  },\n")
-            append("  \"goal\": { \"name\": \"${esc(Prefs.goalName)}\", \"target\": ${Prefs.goalAmount}, \"saved\": $saved, \"remaining\": $goalLeft },\n")
+            append("  \"piggy_bank\": { \"balance\": $saved, \"goal_name\": \"${esc(Prefs.goalName)}\", \"goal_target\": ${Prefs.goalAmount}, \"goal_remaining\": $goalLeft, \"used_in_period\": ${piggy.sumOf { it.amount }} },\n")
+            append("  \"budget\": { \"effective_income\": ${budget.L}, \"buffer\": ${budget.B}, \"plan_save\": ${budget.S}, \"spendable\": ${budget.C}, \"should_spend\": ${budget.shouldSpend}, \"spent\": ${budget.spent}, \"ahead\": ${budget.ahead}, \"is_ahead\": ${budget.isAhead}, \"per_day_left\": ${budget.perDayLeft} },\n")
             append("  \"transactions\": [\n")
             append(all.joinToString(",\n") { tx -> txJson(tx) })
             append("\n  ],\n")
@@ -69,7 +72,9 @@ object Export {
 
         val md = buildString {
             append("# 记账buddy 数据导出（${if (allTime) "全部" else p.label}）\n\n")
-            append("收入 ¥${fmt(income)}  支出 ¥${fmt(spent)}  结余 ¥${fmt(income - spent)}\n\n")
+            append("收入 ¥${fmt(income)}  日常支出 ¥${fmt(spent)}  结余 ¥${fmt(income - spent)}\n")
+            append("攒钱罐支出 ¥${fmt(piggy.sumOf { it.amount })}（不计入日常结余，罐余额 ¥${fmt(saved)}）\n")
+            append("可花额 ¥${fmt(budget.C)}  到今天应花 ¥${fmt(budget.shouldSpend)}  实花 ¥${fmt(budget.spent)}  超前 ¥${fmt(budget.ahead)}\n\n")
             append("## 分类\n")
             for ((k, v) in byCat) append("- $k：¥${fmt(v)}\n")
             append("\n## 备注结构\n")
