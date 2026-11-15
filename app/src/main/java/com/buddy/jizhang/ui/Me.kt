@@ -69,6 +69,7 @@ fun MeScreen(tick: Int, onTick: () -> Unit) {
         "update" -> UpdateScreen(onBack = { page = "me" })
         "settles" -> SettlementsScreen(onBack = { page = "me" })
         "widgethelp" -> WidgetHelpScreen(onBack = { page = "me" })
+        "restore" -> RestoreScreen(onBack = { page = "me" })
     }
 }
 
@@ -139,6 +140,7 @@ private fun MeMenu(tick: Int, go: (String) -> Unit) {
                 MenuRow("数据备份导出", "JSON / CSV / MD 一键分享") {
                     Export.share(ctx, Period.YEAR, allTime = true)
                 }
+                MenuRow("从备份恢复", "换版本时把旧账目导回来") { go("restore") }
                 MenuRow("设置", "限额、品类、生活助手参数、悬浮窗、提醒") { go("settings") }
             }
         }

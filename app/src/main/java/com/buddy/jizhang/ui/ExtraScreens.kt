@@ -3,6 +3,8 @@ package com.buddy.jizhang.ui
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +35,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.buddy.jizhang.core.Piggy
+import com.buddy.jizhang.core.Restore
 import com.buddy.jizhang.core.fmt
 import com.buddy.jizhang.data.Dao
 import com.buddy.jizhang.data.Prefs
@@ -285,6 +288,49 @@ fun SettlementsScreen(onBack: () -> Unit) {
                     KV("结算后罐余额", "¥${fmt(s.piggyAfter)}")
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun RestoreScreen(onBack: () -> Unit) {
+    val ctx = LocalContext.current
+    var msg by remember { mutableStateOf("") }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val text = runCatching {
+            ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty()
+        }.getOrDefault("")
+        val n = runCatching { Restore.run(ctx, text) }.getOrElse { e ->
+            msg = "恢复失败：${e.message ?: "文件格式不对"}"
+            return@rememberLauncherForActivityResult
+        }
+        msg = if (n > 0) "已恢复 $n 笔记录（重复的会自动跳过）" else "没有需要恢复的记录，或文件格式不对"
+    }
+
+    Page("从备份恢复", onBack) {
+        SectionCard("换签名版本时保住账目") {
+            Text(
+                "1  在旧版「我的 → 数据备份导出」生成 JSON，发到文件传输助手并保存到手机\n" +
+                    "2  卸载旧版、安装新版\n" +
+                    "3  在这里选那个 JSON 文件，逐笔记录（含备注原文和自动标签）会导回",
+                fontSize = 12.5.sp, color = TextDark, lineHeight = 22.sp
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(onClick = { pick.launch("*/*") }, modifier = Modifier.fillMaxWidth()) {
+                Text("选择备份 JSON 文件", fontSize = 13.sp)
+            }
+            if (msg.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text(msg, fontSize = 12.sp, color = OkGreen, lineHeight = 18.sp)
+            }
+        }
+        SectionCard("说明", container = SoftPurple) {
+            Text("按「时间 + 金额 + 备注」去重，重复导入不会记两遍。恢复后月末结算和推荐限额会自动重算。",
+                fontSize = 12.sp, color = TextDark, lineHeight = 19.sp)
+            Spacer(Modifier.height(6.dp))
+            Text("从这一版开始签名固定，之后再更新就能直接覆盖安装，不用再走这一步。",
+                fontSize = 11.5.sp, color = TextGray, lineHeight = 18.sp)
         }
     }
 }
