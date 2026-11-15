@@ -34,7 +34,10 @@ object Perm {
         return runCatching {
             val am = ctx.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
             am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-                .any { it.serviceInfo.packageName == ctx.packageName && it.serviceInfo.name.endsWith("WatchService") }
+                .any { info ->
+                    val si = info.resolveInfo?.serviceInfo
+                    si != null && si.packageName == ctx.packageName && si.name.endsWith("WatchService")
+                }
         }.getOrDefault(false)
     }
 
